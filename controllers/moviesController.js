@@ -3,7 +3,7 @@ import connection from "../connection.js";
 
 function index(req, res) {
   const sql = `
-  SELECT movies.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.comment) AS commenti
+  SELECT movies.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.text) AS commenti
   FROM movies
   LEFT JOIN reviews 
 	  ON reviews.movie_id = movies.id
