@@ -13,7 +13,11 @@ function index(req, res) {
     if (err) return res.status(500).json({
       error: `Database query failed`
     });
-    res.json(results);
+    const response = {
+      count: results.length,
+      items: results
+    };
+    res.json(response);
   })
 }
 
