@@ -1,104 +1,72 @@
-import CustomError from "../classes/CustomError.js";
 import connection from "../connection.js";
+import CustomError from "../classes/CustomError.js";
 
 function index(req, res) {
-  const sql = `
-  SELECT movies.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.text) AS commenti
-  FROM movies
-  LEFT JOIN reviews 
-	  ON reviews.movie_id = movies.id
-  GROUP BY movies.id;`;
-
-  connection.query(sql, (err, results) => {
-    if (err) return res.status(500).json({
-      error: `Database query failed`
+    // Recupero tutti i libri e per ciascun film il numero delle recensioni e la media voto totale:
+    const sql = `SELECT movies.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.text) AS commenti
+                FROM movies
+                LEFT JOIN reviews 
+                ON reviews.movie_id = movies.id
+                GROUP BY movies.id`;
+    // Uso il metodo query() per passargli la query SQL e una funzione di callback:
+    connection.query(sql, (err, results) => {
+        // Se rilevo un errore nella chiamata al database, restituisco l'errore HTTP 500 Internal Server Error” e un messaggio personalizzato:
+        if (err) res.status(500).json({ error: 'Errore del server' });
+        // console.log(results);
+        // Creo un oggetto contenente il conteggio totale dei libri e il risultato della query SQL:
+        const response = {
+            count: results.length,
+            items: results,
+        }
+        //Rispondo con l'oggetto JSON riempito con i data ricevuti dall'interrogazione fatta al database:
+        res.json(response);
     });
-    const response = {
-      count: results.length,
-      items: results
-    };
-    res.json(response);
-  })
 }
 
 function show(req, res) {
-  const id = parseInt(req.params.id);
-
-  // Prima query: Recupera i dettagli del libro
-  const sqlMovieDetails = `SELECT * FROM movies WHERE id = ?;`;
-
-  connection.query(sqlMovieDetails, [id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database query failed' });
-
-    const item = results[0]; // Prendi il primo libro
-    if (!item) return res.status(404).json({ error: 'Movie not found' });
-
-    // Seconda query: Recupera tutti i commenti associati al libro
-    const sqlMovieReviews = `SELECT * FROM reviews WHERE movie_id = ?;`;
-
-    connection.query(sqlMovieReviews, [id], (err, reviews) => {
-      if (err) return res.status(500).json({ error: 'Error server' });
-
-      // Aggiungi i commenti ai dettagli del libro
-      item.reviews = reviews;
-
-      res.json(item); // Rispondi con il libro completo e i commenti
+    const id = parseInt(req.params.id);
+    // Recupero tutti i libri e per ciascun film il numero delle recensioni e la media voto totale:
+    const sql = `SELECT movies.*, AVG(reviews.vote) AS vote_average, COUNT(reviews.text) AS commenti
+                FROM reviews
+                RIGHT JOIN movies 
+                ON movies.id = reviews.movie_id
+                WHERE movies.id = ?`;
+    // Uso il metodo query() per passargli la query SQL e una funzione di callback:
+    connection.query(sql, [id], (err, results) => {
+        // Se rilevo un errore nella chiamata al database, restituisco l'errore HTTP 500 Internal Server Error” e un messaggio personalizzato:
+        if (err) return res.status(500).json({
+            error: 'Errore del server'
+        });
+        // Assegno alla costante item i dati ritornati dalla query:
+        const item = results[0];
+        if (item.id == null) return res.status(404).json({ error: 'film non trovato' });
+        // Creo la query SQL con le Prepared statements (? al posto di id) per evitare le SQL Injections:
+        const sqlReviews = "SELECT * FROM `reviews` WHERE `movie_id` = ?";
+        // Uso il metodo query() per passargli la query SQL, il valore di di id nel segnaposto "?", e una funzione di callback:
+        connection.query(sqlReviews, [id], (err, reviews) => {
+            if (err) return res.status(500).json({ error: "Error server" });
+            // Aggiungo all'oggetto item una chiave/proprietà che conterrà i commenti associati:
+            item.reviews = reviews;
+            // Ritorno l'oggetto (item)
+            res.json(item);
+        });
     });
-  });
 }
-// const response= {
-//   id: results[0].id,
-//   pizza_name: results[0].pizza_name,
-//   ingredients: results.map(ele => ele.ingredient_name),
-// };
 
 function store(req, res) {
-  let newId = 0;
-  for (let i = 0; i < books.length; i++) {
-    if (books[i].id > newId) {
-      newId = books[i].id;
-    }
-  }
-  newId += 1;
-  console.log(req.body);
-  // new data is in req.body
-  const newItem = {
-    id: newId,
-    ...req.body,
-  };
-
-  books.push(newItem);
-  res.status(201).json(newItem);
 }
 
 function update(req, res) {
-  const id = parseInt(req.params.id);
-  const item = books.find((item) => item.id === id);
-  if (!item) {
-    throw new CustomError("L'elemento non esiste", 404);
-  }
-
-  //console.log(req.body);
-  for (key in item) {
-    if (key !== "id") {
-      item[key] = req.body[key];
-    }
-  }
-
-  //console.log(books);
-  res.json(item);
 }
-
 function destroy(req, res) {
-
-  const { id } = req.params;
-
-  connection.query('DELETE FROM movies WHERE id = ?', [id], (err) => {
-    if (err) return res.status(500).json({
-      error: 'Failed to delete movie'
+    const id = parseInt(req.params.id);
+    // Uso il metodo query() per passargli la query SQL, il valore di "?", e una funzione di callback:
+    connection.query("DELETE FROM `movies` WHERE `id` = ?", [id], (err) => {
+        // Se rilevo un errore restituisco l'errore HTTP 500 Internal Server Error” e un messaggio personalizzato:
+        if (err) return res.status(500).json({ error: 'Errore del server! Cancellazione fallita' });
+        // Invio lo status 204: il server ha completato con successo la richiesta, ma restituisco alcun contenuto
+        res.sendStatus(204);
     });
-    res.sendStatus(204)
-  });
 }
 
 export { index, show, store, update, destroy };
